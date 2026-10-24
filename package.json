@@ -1,6 +1,6 @@
 {
   "name": "agses-cli",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Find, outline, read and search Claude Code sessions from the terminal",
   "keywords": [
     "agents",
