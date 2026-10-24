@@ -49,7 +49,8 @@ Run from source with `bun src/index.ts <command>`.
 
 `test/cli.test.ts` runs the CLI against the Claude Code transcripts in
 `test/fixtures`. Point `CLAUDE_CONFIG_DIR` at that directory to try a command on
-them.
+them. `test/fixtures.ts` writes them. Change it rather than the transcripts, and
+run `bun test/fixtures.ts`.
 
 Release with `mise run release patch` (or `minor`, `major`, an exact version).
 It sets the version in `package.json`, commits, tags and pushes. The tag starts
