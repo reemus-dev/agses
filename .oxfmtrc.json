@@ -1,5 +1,7 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  // Fixtures keep the single-line JSON Claude Code writes
+  "ignorePatterns": ["test/fixtures/"],
   "printWidth": 80,
   "bracketSpacing": false,
   "bracketSameLine": true,

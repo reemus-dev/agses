@@ -31,7 +31,7 @@ export const projectsCommand = defineCommand({
         .map(({project, sessions}) => ({
           project,
           sessions: sessions.length,
-          size: sessions.reduce((sum, session) => sum + (session.size ?? 0), 0),
+          size: sessions.reduce((sum, session) => sum + session.size, 0),
           firstSession:
             sessions
               .map((session) => session.created)

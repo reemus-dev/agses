@@ -94,8 +94,9 @@ project that contains the current directory.
 4. An exact title, case-insensitive.
 5. An unambiguous UUID prefix.
 
-A session continued in a new transcript is not listed. Its path, Hex ID, UUID or
-UUID prefix still selects it.
+A session continued in a new transcript is not listed. It belongs to the project
+of the session that continues it, where its path, Hex ID, UUID or UUID prefix
+still selects it.
 
 Without `--project`, a `SESSION` with no match in the current directory's
 project, or given outside any project, resolves across all projects by the same
@@ -128,20 +129,20 @@ agses workflows SESSION --run RUN_ID
 `agses` reads `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects` when
 `CLAUDE_CONFIG_DIR` is not set. It never starts a model session.
 
-Session lists and metadata come from the Claude Agent SDK (`listSessions`, and
-`getSessionInfo` for continued sessions). For events, `agses` reads the
-transcript JSONL and hands it to `getSessionMessages` through an in-memory
-session store. It re-parents each compaction boundary onto the history before
-it, so the SDK's branch selection resolves the whole main thread instead of
-stopping at the last compaction.
+A session's title, first prompt and working directory come from the first and
+last 64 KB of its transcript. For events, `agses` reads the whole transcript and
+follows its `parentUuid` chain back from the latest branch, so abandoned
+branches stay out. It re-parents each compaction boundary onto the history
+before it, so the thread runs through every compaction instead of stopping at
+the last one.
 
 Resuming a compacted session can continue it in a new transcript. The new
 transcript repeats the compaction, and the old one ends with a `continued-in`
 entry that names the new session. `agses` reads the old history first, so the
 new session's thread, subagents and workflow runs still span every compaction.
 
-- **Projects** are the recorded session working directories (`cwd`). A session
-  started in a git worktree belongs to the worktree path.
+- **Projects** are the directories sessions started in, as Claude Code files
+  them. A session started in a git worktree belongs to the worktree path.
 - **Events** are user and assistant text, compaction summaries, and tool calls
   on the main thread, plus extras: attachments (hook output, file and reminder
   context), plugin and meta messages, system entries, and harness noise

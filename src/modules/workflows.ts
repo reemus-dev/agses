@@ -71,7 +71,6 @@ export async function readWorkflowRuns(
   subagents: SubagentRecord[],
   events: SessionEvent[],
 ): Promise<WorkflowRun[]> {
-  if (session.transcript === null) return [];
   const directory = path.join(path.dirname(session.transcript), session.id);
 
   const launchesByRun = new Map<string, RunLaunch[]>();

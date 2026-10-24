@@ -8,27 +8,29 @@ Read `README.md` for the user contract.
 
 ## Where to work
 
-| Area                       | Responsibility                                              |
-| -------------------------- | ----------------------------------------------------------- |
-| `src/index.ts`             | Entry, command tree, usage guide and shell completion       |
-| `src/commands/`            | One citty command per file, parsing and output              |
-| `src/modules/discovery.ts` | Listing sessions and grouping them into projects            |
-| `src/modules/sessions.ts`  | Session and subagent resolution, transcript I/O             |
-| `src/modules/events.ts`    | Projecting a thread's entries into numbered events          |
-| `src/modules/previews.ts`  | One-line previews of tool calls                             |
-| `src/modules/workflows.ts` | Workflow runs from Workflow calls, journals and snapshots   |
-| `src/modules/format.ts`    | Text tables, paths, sizes and dates                         |
-| `src/modules/cli.ts`       | Failures, strict argument validation and `--first`/`--last` |
+| Area                         | Responsibility                                              |
+| ---------------------------- | ----------------------------------------------------------- |
+| `src/index.ts`               | Entry, command tree, usage guide and shell completion       |
+| `src/commands/`              | One citty command per file, parsing and output              |
+| `src/modules/discovery.ts`   | Listing sessions and grouping them into projects            |
+| `src/modules/sessions.ts`    | Session and subagent resolution, transcript I/O             |
+| `src/modules/transcripts.ts` | Session metadata and thread selection from transcripts      |
+| `src/modules/events.ts`      | Projecting a thread's entries into numbered events          |
+| `src/modules/previews.ts`    | One-line previews of tool calls                             |
+| `src/modules/workflows.ts`   | Workflow runs from Workflow calls, journals and snapshots   |
+| `src/modules/format.ts`      | Text tables, paths, sizes and dates                         |
+| `src/modules/cli.ts`         | Failures, strict argument validation and `--first`/`--last` |
 
 ## Design constraints
 
 - Read only. Never write to the Claude Code config directory.
-- Resolve the config directory from `CLAUDE_CONFIG_DIR`, as Claude Code and the
-  Agent SDK do, and fall back to `~/.claude`.
-- The Agent SDK lists sessions and selects a thread's branch. `agses` hands it
-  relinked entries through an in-memory session store, so the thread spans every
-  compaction. A session continued in a new transcript reads the old transcript
-  first.
+- Resolve the config directory from `CLAUDE_CONFIG_DIR`, as Claude Code does,
+  and fall back to `~/.claude`.
+- `src/modules/transcripts.ts` derives from the MIT-licensed Claude Agent SDK
+  for Python, adjusted to match what the TypeScript SDK returns. Keep its
+  license notice.
+- A thread spans every compaction. A session continued in a new transcript reads
+  the old transcript first.
 - `#N` refs number every event, extras included, so a ref holds with or without
   `--extra`.
 - Only `tokens` uses the network. It requires `AGSES_ANTHROPIC_API_KEY` or, as a
@@ -44,6 +46,10 @@ mise run check
 ```
 
 Run from source with `bun src/index.ts <command>`.
+
+`test/cli.test.ts` runs the CLI against the Claude Code transcripts in
+`test/fixtures`. Point `CLAUDE_CONFIG_DIR` at that directory to try a command on
+them.
 
 Release with `mise run release patch` (or `minor`, `major`, an exact version).
 It sets the version in `package.json`, commits, tags and pushes. The tag starts

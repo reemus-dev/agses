@@ -15,12 +15,16 @@ run = "bun install --frozen-lockfile"
 # ── Checks ──────────────────────────────────────────────────────────────────
 
 [tasks.check]
-description = "Typecheck, lint, and check formatting without modifying files"
-depends = ["typecheck", "lint", "format:check"]
+description = "Typecheck, lint, check formatting and test without modifying files"
+depends = ["typecheck", "lint", "format:check", "test"]
 
 [tasks.typecheck]
 description = "Typecheck the CLI"
 run = "tsc -p tsconfig.json"
+
+[tasks.test]
+description = "Run the CLI against the fixture sessions"
+run = "bun test"
 
 [tasks.lint]
 description = "Lint the CLI without modifying files"

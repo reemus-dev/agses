@@ -1,10 +1,6 @@
 import {existsSync} from "node:fs";
 import {homedir} from "node:os";
 import path from "node:path";
-import {
-  getSessionMessages,
-  getSubagentMessages,
-} from "@anthropic-ai/claude-agent-sdk";
 import {CliFailure} from "./cli.js";
 import {
   discoverProjects,
@@ -13,12 +9,13 @@ import {
   type SessionRecord,
   sessionsOf,
 } from "./discovery.js";
+import {projectEvents, type SessionEvent} from "./events.js";
 import {
-  projectEvents,
+  mainThread,
   relinkCompactions,
-  type SessionEvent,
+  subagentThread,
   type TranscriptEntry,
-} from "./events.js";
+} from "./transcripts.js";
 
 export type SubagentRecord = {
   id: string;
@@ -37,12 +34,11 @@ export type SubagentRecord = {
 
 /**
  * The session's transcript after those of the sessions it continues, oldest
- * first; none without a transcript
+ * first
  */
 export function sessionTranscripts(
   session: SessionRecord,
 ): Array<{id: string; transcript: string}> {
-  if (session.transcript === null) return [];
   return [
     ...session.continues,
     {id: session.id, transcript: session.transcript},
@@ -104,9 +100,6 @@ async function readTranscript(transcript: string): Promise<TranscriptEntry[]> {
 async function readSessionEntries(
   session: SessionRecord,
 ): Promise<TranscriptEntry[]> {
-  if (session.transcript === null) {
-    throw new CliFailure(`No transcript file found for session ${session.id}.`);
-  }
   let entries: TranscriptEntry[] = [];
   for (const {id, transcript} of sessionTranscripts(session)) {
     const move = entries.findIndex(
@@ -131,15 +124,7 @@ export async function readSessionEvents(
   subagents: SubagentRecord[],
 ): Promise<SessionEvent[]> {
   const entries = relinkCompactions(await readSessionEntries(session));
-  // Loading through a store hands the SDK the relinked entries to resolve
-  const thread = await getSessionMessages(session.id, {
-    includeSystemMessages: true,
-    sessionStore: {
-      append: () => Promise.resolve(),
-      load: () => Promise.resolve(entries),
-    },
-  });
-  return projectEvents(entries, thread, subagents);
+  return projectEvents(entries, mainThread(entries), subagents);
 }
 
 /**
@@ -153,12 +138,7 @@ export async function readSubagentEvents(
   subagent: SubagentRecord,
 ): Promise<SessionEvent[]> {
   const entries = relinkCompactions(await readTranscript(subagent.transcript));
-  const thread = await getSubagentMessages(session.id, subagent.id, {
-    sessionStore: {
-      append: () => Promise.resolve(),
-      load: () => Promise.resolve(entries),
-    },
-  });
+  const thread = subagentThread(entries);
   const start = thread.findIndex(
     ({type, message}) =>
       type === "assistant" &&

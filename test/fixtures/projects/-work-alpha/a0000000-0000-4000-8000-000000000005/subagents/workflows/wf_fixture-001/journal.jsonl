@@ -1,0 +1,2 @@
+{"type":"started","key":"k1","agentId":"a0000000000000007","label":"Research the fixture","phase":"Research"}
+{"type":"result","key":"k1","agentId":"a0000000000000007","result":"Workflow agent answer"}

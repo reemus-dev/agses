@@ -1,5 +1,5 @@
-import type {SessionMessage} from "@anthropic-ai/claude-agent-sdk";
 import {previewToolCall, stringArgument} from "./previews.js";
+import type {ThreadEntry, TranscriptEntry} from "./transcripts.js";
 
 type EventBase = {
   /** 1-based position on the main thread, counting extras whether shown or not */
@@ -62,22 +62,6 @@ export type SessionEvent =
   | ExtraEvent
   | ToolEvent;
 
-/** One JSONL transcript line; only the fields read here are typed */
-export type TranscriptEntry = {
-  type: string;
-  uuid?: string;
-  parentUuid?: string | null;
-  timestamp?: string;
-  subtype?: string;
-  isMeta?: boolean;
-  isSidechain?: boolean;
-  isCompactSummary?: boolean;
-  message?: unknown;
-  content?: unknown;
-  attachment?: Record<string, unknown>;
-  [key: string]: unknown;
-};
-
 type ContentBlock = Record<string, unknown> & {type?: unknown};
 
 /** Transcript bookkeeping fields omitted when a system entry has no content */
@@ -107,52 +91,18 @@ const SENDER_PATTERN =
 // ── Thread ────────────────────────────────────────────────────────────
 
 /**
- * A compaction boundary starts a fresh chain (`parentUuid: null`), so the SDK
- * resolves only what follows the last one. Re-parent each boundary onto the
- * entry written before it, so the SDK resolves the whole thread in the order it
- * happened. Compaction kept some messages, either the session's opening or its
- * latest turns, and the SDK moves them after the boundary, which would loop the
- * relinked chain. So the boundary drops its compact metadata.
- */
-export function relinkCompactions(
-  entries: TranscriptEntry[],
-): TranscriptEntry[] {
-  // Keyed by sidechain, so a main thread skips inline subagent entries
-  const latest = new Map<boolean, string>();
-  return entries.map((entry) => {
-    if (entry.uuid === undefined) return entry;
-    const sidechain = entry.isSidechain === true;
-    const parentUuid = latest.get(sidechain);
-    latest.set(sidechain, entry.uuid);
-    if (
-      entry.subtype !== "compact_boundary" ||
-      entry.parentUuid ||
-      parentUuid === undefined
-    ) {
-      return entry;
-    }
-    return {...entry, parentUuid, compactMetadata: undefined};
-  });
-}
-
-/**
- * Order the SDK-resolved thread with the off-thread entries hanging beneath
- * each thread entry (hook attachments, plugin and meta messages) spliced in
- * after it. Prompts and replies off the thread belong to abandoned branches, so
- * they and everything beneath them stay out. Every entry of a subagent
- * transcript is a sidechain entry, so only the main thread excludes them.
+ * Order the thread with the off-thread entries hanging beneath each thread
+ * entry (hook attachments, plugin and meta messages) spliced in after it.
+ * Prompts and replies off the thread belong to abandoned branches, so they and
+ * everything beneath them stay out. Every entry of a subagent transcript is a
+ * sidechain entry, so only the main thread excludes them.
  */
 function spliceExtras(
   entries: TranscriptEntry[],
-  thread: SessionMessage[],
+  thread: ThreadEntry[],
 ): {ordered: TranscriptEntry[]; onThread: Set<string>} {
   const onThread = new Set(thread.map(({uuid}) => uuid));
-  const byUuid = new Map<string, TranscriptEntry>();
-  for (const entry of entries) {
-    if (entry.uuid !== undefined) byUuid.set(entry.uuid, entry);
-  }
-  const sidechain =
-    thread[0] !== undefined && byUuid.get(thread[0].uuid)?.isSidechain === true;
+  const sidechain = thread[0]?.isSidechain === true;
   const offThreadChildren = new Map<string, TranscriptEntry[]>();
   for (const entry of entries) {
     if (
@@ -171,16 +121,11 @@ function spliceExtras(
   }
 
   const ordered: TranscriptEntry[] = [];
-  for (const message of thread) {
-    // The SDK synthesizes queued-command prompts under uuids absent from the file
-    ordered.push(
-      byUuid.get(message.uuid) ?? {
-        type: message.type,
-        uuid: message.uuid,
-        message: message.message,
-      },
-    );
-    const pending = (offThreadChildren.get(message.uuid) ?? []).toReversed();
+  for (const threadEntry of thread) {
+    ordered.push(threadEntry);
+    const pending = (
+      offThreadChildren.get(threadEntry.uuid) ?? []
+    ).toReversed();
     while (pending.length > 0) {
       const entry = pending.pop()!;
       ordered.push(entry);
@@ -221,7 +166,7 @@ type EntryBase = Omit<EventBase, "ref">;
  */
 export function projectEvents(
   entries: TranscriptEntry[],
-  thread: SessionMessage[],
+  thread: ThreadEntry[],
   subagents: ReadonlyArray<{id: string; toolUseId: string | null}>,
 ): SessionEvent[] {
   const {ordered, onThread} = spliceExtras(entries, thread);
