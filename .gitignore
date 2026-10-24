@@ -1,36 +1,63 @@
-# dependencies
-node_modules/
+# ── Project ──────
 
-# build output
-dist/
-
-# local maintainer notes
+# Maintainer notes
 /TODO.md
 
-# mise local overrides
+# Secrets, which Bun loads and which may hold the API key for `agses tokens`
+.env
+.env.*
+!.env.example
+.auth.json
+
+# npm pack output
+*.tgz
+
+# ── Node ──────
+
+node_modules/
+*.log
+
+# ── mise ──────
+
 .mise.local.toml
 .mise.*.local.toml
 
-# secrets and logs
-.env
-.env.*
-.auth.json
-*.log
+# ── Agents ──────
 
-# editors
-.idea/
-.vscode/
-
-# OS
-.DS_Store
-
-# AI agent local state
-.agents/*
-!.agents/filehooks.*
-.claude/
-.codex/
-.pi/
-.air/
-.playwright-cli/
+# Claude Code
+.claude/*.local.json
 .mcp.json
 CLAUDE.local.md
+
+# Other agents and tools
+.agents/*
+!.agents/filehooks.*
+!.agents/skills/
+.air/
+.codex/
+.pi/
+.playwright-cli/
+
+# ── Editors ──────
+
+.idea/
+.vscode/
+*.code-workspace
+
+# ── OS ──────
+
+# macOS
+.DS_Store
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+[Dd]esktop.ini
+*.lnk
+
+# Linux
+*~
+.directory
+.fuse_hidden*
+.nfs*
