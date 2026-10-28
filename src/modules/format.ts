@@ -24,6 +24,20 @@ export function formatDateTime(timestamp: string | null): string {
   return timestamp?.slice(0, 16).replace("T", " ") ?? "-";
 }
 
+/** Milliseconds in their two largest units, such as `4m05s` or `2d03h` */
+export function formatDuration(duration: number | null): string {
+  if (duration === null) return "-";
+  const seconds = Math.round(duration / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m${String(seconds % 60).padStart(2, "0")}s`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h${String(minutes % 60).padStart(2, "0")}m`;
+  return `${Math.floor(hours / 24)}d${String(hours % 24).padStart(2, "0")}h`;
+}
+
 /** Truncate to a terminal display width, appending "…" when cut */
 function truncateToWidth(value: string, width: number, pad = false): string {
   let result = value;
@@ -59,8 +73,9 @@ export function outputWidth(): number {
 }
 
 /**
- * Column-aligned table that fits `maximumWidth`. Flexible columns shrink first
- * (down to their header width), then the widest remaining column.
+ * Column-aligned table that fits `maximumWidth`. Flexible columns shrink first,
+ * in the order given, each down to its header width. Then the widest column
+ * shrinks.
  */
 export function formatTable(
   headers: string[],
@@ -79,23 +94,20 @@ export function formatTable(
   let tableWidth = gap.length * (headers.length - 1);
   for (const width of widths) tableWidth += width;
 
-  const widestShrinkable = (candidates: readonly number[], floor: number[]) => {
-    let widest: number | undefined;
-    for (const index of candidates) {
-      if (widths[index]! <= floor[index]!) continue;
-      if (widest === undefined || widths[index]! > widths[widest]!)
-        widest = index;
+  const widest = () => {
+    let column: number | undefined;
+    for (const [index, width] of widths.entries()) {
+      if (width <= 1) continue;
+      if (column === undefined || width > widths[column]!) column = index;
     }
-    return widest;
+    return column;
   };
 
   while (tableWidth > maximumWidth) {
     const column =
-      widestShrinkable(options.flexibleColumns ?? [], headerWidths) ??
-      widestShrinkable(
-        widths.map((_width, index) => index),
-        widths.map(() => 1),
-      );
+      options.flexibleColumns?.find(
+        (index) => widths[index]! > headerWidths[index]!,
+      ) ?? widest();
     if (column === undefined) break;
     widths[column]!--;
     tableWidth--;

@@ -62,7 +62,7 @@ const CHAIN_TYPES = new Set([
 
 export type SessionMetadata = {
   /** The latest rename, else the AI title, last prompt, summary or first prompt */
-  title: string;
+  name: string;
   firstPrompt: string | null;
   /** The first recorded working directory */
   cwd: string | null;
@@ -88,7 +88,7 @@ const BASH_INPUT_PATTERN = /^<bash-input>([\s\S]*)<\/bash-input>$/;
 
 /**
  * A session's metadata from its transcript's first and last 64 KB, or null when
- * it has nothing to list: a subagent sidechain, or no title or prompt.
+ * it has nothing to list: a subagent sidechain, or no name or prompt.
  */
 export async function readSessionMetadata(
   transcript: string,
@@ -104,7 +104,7 @@ export async function readSessionMetadata(
   if (/"isSidechain": ?true/.test(firstLine)) return null;
 
   const firstPrompt = firstPromptOf(head);
-  const title =
+  const name =
     lastStringField(tail, "customTitle") ??
     lastStringField(head, "customTitle") ??
     lastStringField(tail, "aiTitle") ??
@@ -112,11 +112,11 @@ export async function readSessionMetadata(
     lastStringField(tail, "lastPrompt") ??
     lastStringField(tail, "summary") ??
     firstPrompt;
-  if (!title) return null;
+  if (!name) return null;
 
   const created = Date.parse(firstStringField(head, "timestamp") ?? "");
   return {
-    title,
+    name,
     firstPrompt,
     cwd: firstStringField(head, "cwd") ?? (await streamCwd(transcript)),
     created: Number.isNaN(created) ? null : created,

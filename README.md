@@ -2,14 +2,15 @@
 
 [![CI](https://github.com/reemus-dev/agses/actions/workflows/ci.yml/badge.svg)](https://github.com/reemus-dev/agses/actions/workflows/ci.yml)
 
-Find, outline, read and search Claude Code sessions from your terminal.
+Find, outline, read, search and rename Claude Code sessions from your terminal.
 
 - List projects and sessions, newest activity first
 - Outline a session as numbered events, then read any event in full
 - Read across every compaction, not just the context since the last one
 - Follow subagent threads and workflow runs from the parent session
 - Search message text across one project or all of them
-- Get JSON output from every session command
+- Rename a session, as `/rename` does, even while it runs
+- Get JSON output from every command that lists or reads sessions
 
 `agses` reads the full transcripts that Claude Code already saves, exactly as
 recorded, with no index to build or keep current. It is made for agents that
@@ -52,11 +53,12 @@ source <(agses complete bash)
 
 ```sh
 agses projects
-agses sessions [--project PATH_OR_QUERY | --all] [--limit N]
+agses sessions [--project PATH_OR_QUERY | --all] [--limit N] [--size]
 agses outline [SESSION] [--subagent ID] [--first N | --last N] [--no-tools] [--extra]
 agses read [SESSION] [--subagent ID] [--role user|assistant|both] [--no-tools] [--extra] [--first N | --last N] [--entry N] [--tokens N]
 agses search QUERY [--project PATH_OR_QUERY | --all] [--role user|assistant|both] [--subagents] [--context N] [--regex] [--case-sensitive]
 agses workflows [SESSION] [--run ID|REF]
+agses rename SESSION NAME
 agses tokens [FILE] [--model opus|sonnet|haiku|ID]
 ```
 
@@ -70,13 +72,14 @@ agses read SESSION --no-tools --tokens 80000   # recent conversation within a to
 agses search "query" --all --context 1         # matches with one message either side
 ```
 
-- Every session command accepts `--format text|json`.
+- `agses` alone runs `agses sessions`.
+- Every command that lists or reads sessions accepts `--format text|json`.
 - `#N` refs in an outline number every event, including the attachment, meta and
   system entries that only `--extra` shows. A ref is the same with or without
   `--extra`. Pass it to `read --entry N`.
 - `tokens` counts the tokens in a file, or stdin, for a model.
-- Run `agses --help` for the guide, and `agses <command> --help` for every
-  option. `agses --version` prints the installed version.
+- Run `agses help` or `agses --help` for the guide, and `agses help <command>`
+  for every option. `agses --version` prints the installed version.
 
 ### Session selection
 
@@ -91,7 +94,7 @@ project that contains the current directory.
 2. Exactly 14 hex characters are a Hex ID, as `sessions` shows it, with no
    fallback to the other forms.
 3. An exact session UUID.
-4. An exact title, case-insensitive.
+4. An exact name, case-insensitive.
 5. An unambiguous UUID prefix.
 
 A session continued in a new transcript is not listed. It belongs to the project
@@ -129,12 +132,13 @@ agses workflows SESSION --run RUN_ID
 `agses` reads `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects` when
 `CLAUDE_CONFIG_DIR` is not set. It never starts a model session.
 
-A session's title, first prompt and working directory come from the first and
-last 64 KB of its transcript. For events, `agses` reads the whole transcript and
-follows its `parentUuid` chain back from the latest branch, so abandoned
-branches stay out. It re-parents each compaction boundary onto the history
-before it, so the thread runs through every compaction instead of stopping at
-the last one.
+A session's name, first prompt and working directory come from the first and
+last 64 KB of its transcript. The name is the latest rename, else Claude Code's
+AI title, then the last or first prompt. For events, `agses` reads the whole
+transcript and follows its `parentUuid` chain back from the latest branch, so
+abandoned branches stay out. It re-parents each compaction boundary onto the
+history before it, so the thread runs through every compaction instead of
+stopping at the last one.
 
 Resuming a compacted session can continue it in a new transcript. The new
 transcript repeats the compaction, and the old one ends with a `continued-in`
@@ -168,7 +172,10 @@ new session's thread, subagents and workflow runs still span every compaction.
 
 ## Privacy
 
-- `agses` is read-only. It never writes to the Claude Code config directory.
+- Only `rename` writes to the Claude Code config directory. It appends one
+  `custom-title` entry to the session's transcript, as `/rename` and the Agent
+  SDK's `renameSession` do. A running session shows the new name the next time
+  it records its name, or when resumed.
 - Everything runs locally, except `tokens`. It sends its input to Anthropic's
   token-counting API and needs `AGSES_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`,
   in that order. Claude Code can use `ANTHROPIC_API_KEY` in place of your

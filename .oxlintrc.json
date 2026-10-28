@@ -86,5 +86,12 @@
       "error",
       {"ignoreCase": true, "ignoreDeclarationSort": true}
     ]
-  }
+  },
+  "overrides": [
+    {
+      // The entry imports every command.
+      "files": ["src/index.ts"],
+      "rules": {"import/max-dependencies": "off"}
+    }
+  ]
 }

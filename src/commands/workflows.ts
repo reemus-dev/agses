@@ -2,6 +2,7 @@ import {defineCommand} from "citty";
 import {runSafely, validateArguments} from "../modules/cli.js";
 import type {SessionRecord} from "../modules/discovery.js";
 import {
+  formatDuration,
   formatFrontmatter,
   formatPreview,
   formatTable,
@@ -26,17 +27,6 @@ function formatTokens(tokens: number | null): string {
   if (tokens < 1000) return String(tokens);
   if (tokens < 1_000_000) return `${Math.round(tokens / 1000)}k`;
   return `${(tokens / 1_000_000).toFixed(2)}M`;
-}
-
-function formatDuration(duration: number | null): string {
-  if (duration === null) return "-";
-  const seconds = Math.round(duration / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes}m${String(seconds % 60).padStart(2, "0")}s`;
-  }
-  return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}m`;
 }
 
 function launchRefs(run: WorkflowRun): string {
@@ -84,7 +74,7 @@ function formatRun(session: SessionRecord, run: WorkflowRun): string {
     tokens: run.tokens === null ? null : formatTokens(run.tokens),
     duration: run.duration === null ? null : formatDuration(run.duration),
     hexId: session.hexId,
-    title: session.title,
+    sessionName: session.name,
     project: session.project,
     summary: run.summary,
     script: run.scriptPath === null ? null : shortenPath(run.scriptPath),
@@ -120,7 +110,7 @@ function formatRun(session: SessionRecord, run: WorkflowRun): string {
     rows.length === 0
       ? "No agents recorded."
       : formatTable(headers, rows, {
-          flexibleColumns: [2, 8],
+          flexibleColumns: [8, 2],
           maximumWidth: outputWidth(),
         });
   return `${frontmatter}\n\n${table}`;
@@ -135,7 +125,7 @@ export const workflowsCommand = defineCommand({
   args: {
     session: {
       type: "positional",
-      description: "Session path, UUID/prefix, 14-char Hex ID, or exact title",
+      description: "Session path, UUID/prefix, 14-char Hex ID, or exact name",
       required: false,
     },
     project: {

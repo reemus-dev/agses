@@ -12,8 +12,8 @@ const CONTINUED = "a0000000-0000-4000-8000-000000000003";
 const CONTINUING = "a0000000-0000-4000-8000-000000000004";
 const DELEGATION = "a0000000-0000-4000-8000-000000000005";
 const RENAMED = "b0000000-0000-4000-8000-000000000001";
-const AUTO_TITLED = "b0000000-0000-4000-8000-000000000002";
-const UNTITLED = "b0000000-0000-4000-8000-000000000003";
+const AUTO_NAMED = "b0000000-0000-4000-8000-000000000002";
+const UNNAMED = "b0000000-0000-4000-8000-000000000003";
 const LARGE_FIRST_ENTRY = "b0000000-0000-4000-8000-000000000004";
 const MOVED = "c0000000-0000-4000-8000-000000000001";
 const MOVED_CONTINUING = "b0000000-0000-4000-8000-000000000005";
@@ -23,7 +23,7 @@ const FORKED_AGENT = "a0000000000000006";
 const WORKFLOW_AGENT = "a0000000000000007";
 const CONTINUED_AGENT = "a0000000000000003";
 
-type Session = {id: string; project: string; title: string};
+type Session = {id: string; project: string; name: string};
 
 type OutlineEvent = {
   ref: number;
@@ -143,25 +143,25 @@ describe("discovery", () => {
       [MOVED_CONTINUING, "/work/beta"],
       // Its cwd first appears beyond the first 64 KB, behind a pasted image
       [LARGE_FIRST_ENTRY, "/work/beta"],
-      [UNTITLED, "/work/beta"],
-      [AUTO_TITLED, "/work/beta"],
+      [UNNAMED, "/work/beta"],
+      [AUTO_NAMED, "/work/beta"],
       [RENAMED, "/work/beta"],
     ]);
   });
 
-  test("titles a session by its rename, else its auto title, else its first prompt", async () => {
+  test("names a session by its rename, else its AI title, else its first prompt", async () => {
     const {sessions} = await json<{sessions: Session[]}>(
       "sessions",
       "--project",
       "beta",
     );
-    const titles = new Map(sessions.map(({id, title}) => [id, title]));
-    expect(titles.get(RENAMED)).toBe("Renamed session");
-    expect(titles.get(AUTO_TITLED)).toBe("Cache layer explanation");
+    const names = new Map(sessions.map(({id, name}) => [id, name]));
+    expect(names.get(RENAMED)).toBe("Renamed session");
+    expect(names.get(AUTO_NAMED)).toBe("Cache layer explanation");
 
-    const fallback = titles.get(UNTITLED) ?? "";
+    const fallback = names.get(UNNAMED) ?? "";
     expect(fallback).toStartWith(
-      "Untitled sessions fall back to their first prompt.",
+      "Unnamed sessions fall back to their first prompt.",
     );
     expect(fallback).not.toContain("\n");
     expect(fallback.length).toBeLessThanOrEqual(201);
@@ -431,5 +431,21 @@ describe("tokens", () => {
     const rejected = await agses(["tokens", input], env);
     expect(rejected.code).not.toBe(0);
     expect(rejected.stderr).toContain("Bad input");
+  });
+});
+
+// ─── Rename ─────────────────────────────────────────────────────────────────
+
+// Last, because a rename changes the transcript's mtime and so the list order
+describe("rename", () => {
+  test("names a continued session through the transcript continuing it", async () => {
+    const renamed = await agses(["rename", CONTINUED, "  Fresh name  "]);
+    expect(renamed).toMatchObject({stderr: "", code: 0});
+
+    const {sessions} = await json<{sessions: Session[]}>("sessions", "--all");
+    expect(sessions.find(({id}) => id === CONTINUING)?.name).toBe("Fresh name");
+
+    const {session} = await json<Outline>("outline", "fresh name");
+    expect(session.id).toBe(CONTINUING);
   });
 });

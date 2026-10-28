@@ -18,12 +18,14 @@ Read `README.md` for the user contract.
 | `src/modules/events.ts`      | Projecting a thread's entries into numbered events          |
 | `src/modules/previews.ts`    | One-line previews of tool calls                             |
 | `src/modules/workflows.ts`   | Workflow runs from Workflow calls, journals and snapshots   |
-| `src/modules/format.ts`      | Text tables, paths, sizes and dates                         |
+| `src/modules/format.ts`      | Text tables, paths, sizes, dates and durations              |
 | `src/modules/cli.ts`         | Failures, strict argument validation and `--first`/`--last` |
 
 ## Design constraints
 
-- Read only. Never write to the Claude Code config directory.
+- Only `rename` writes to the Claude Code config directory. It appends one
+  `custom-title` entry, as the Agent SDK's `renameSession` does. Everything else
+  reads.
 - Resolve the config directory from `CLAUDE_CONFIG_DIR`, as Claude Code does,
   and fall back to `~/.claude`.
 - `src/modules/transcripts.ts` derives from the MIT-licensed Claude Agent SDK

@@ -19,7 +19,7 @@ export type SessionRecord = {
   id: string;
   hexId: string;
   project: string;
-  title: string;
+  name: string;
   created: string | null;
   lastActivity: string;
   size: number;
@@ -211,7 +211,7 @@ function sessionRecord(
       .digest("hex")
       .slice(0, HEX_ID_LENGTH),
     project,
-    title: metadata.title,
+    name: metadata.name,
     created:
       metadata.created === null
         ? null

@@ -129,7 +129,7 @@ function write(project: string, file: string, lines: unknown[]) {
 const ALPHA = "-work-alpha";
 const BETA = "-work-beta";
 
-// ─── Beta: titles and a large first entry ───────────────────────────────────
+// ─── Beta: names and a large first entry ────────────────────────────────────
 
 {
   const id = sessionUuid("b", 1);
@@ -151,7 +151,7 @@ const BETA = "-work-beta";
 {
   const id = sessionUuid("b", 3);
   const t = transcript(id, "/work/beta", "2026-01-01T03:00:00Z");
-  const sentence = "Untitled sessions fall back to their first prompt. ";
+  const sentence = "Unnamed sessions fall back to their first prompt. ";
   t.user(`${sentence.repeat(3)}\n${sentence.repeat(5)}`);
   t.assistant("msg_b3", [text("Understood.")]);
   write(BETA, `${id}.jsonl`, t.entries);

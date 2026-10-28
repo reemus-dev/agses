@@ -8,6 +8,7 @@ import {
 import {discoverProjects, sessionsOf} from "../modules/discovery.js";
 import {
   formatDateTime,
+  formatDuration,
   formatPreview,
   formatSize,
   formatTable,
@@ -38,6 +39,11 @@ export const sessionsCommand = defineCommand({
       type: "string",
       description: "Show at most this many sessions",
       valueHint: "count",
+    },
+    size: {
+      type: "boolean",
+      description: "Show each transcript's size",
+      default: false,
     },
     format: {
       type: "enum",
@@ -70,33 +76,41 @@ export const sessionsCommand = defineCommand({
       // Across projects, the project path takes the room of the creation
       // time and first prompt
       const width = outputWidth();
+      const now = Date.now();
       const includeProject = args.all;
-      const includeTitle = width >= 25;
-      const includeLastActivity = width >= 45;
-      const includeSize = width >= 60;
-      const includeCreated = !args.all && width >= 80;
-      const includeFirstPrompt = !args.all && width >= 110;
+      const includeName = width >= 25;
+      const includeIdle = width >= 35;
+      const includeCreated = !args.all && width >= 70;
+      const includeFirstPrompt = !args.all && width >= 90;
+      const includeSize = args.size;
       const headers = [
         "Hex ID",
-        ...(includeTitle ? ["Title"] : []),
+        ...(includeName ? ["Name"] : []),
         ...(includeProject ? ["Project"] : []),
         ...(includeCreated ? ["Created"] : []),
-        ...(includeLastActivity ? ["Last activity"] : []),
+        ...(includeIdle ? ["Idle"] : []),
         ...(includeSize ? ["Size"] : []),
         ...(includeFirstPrompt ? ["First prompt"] : []),
       ];
       const rows = sessions.map((session) => [
         session.hexId,
-        ...(includeTitle ? [formatPreview(session.title)] : []),
+        ...(includeName ? [formatPreview(session.name)] : []),
         ...(includeProject ? [session.project] : []),
         ...(includeCreated ? [formatDateTime(session.created)] : []),
-        ...(includeLastActivity ? [formatDateTime(session.lastActivity)] : []),
+        ...(includeIdle
+          ? [
+              formatDuration(
+                Math.max(0, now - Date.parse(session.lastActivity)),
+              ),
+            ]
+          : []),
         ...(includeSize ? [formatSize(session.size)] : []),
         ...(includeFirstPrompt
           ? [formatPreview(session.firstPrompt ?? "-")]
           : []),
       ]);
-      const flexibleColumns = ["Title", "Project", "First prompt"]
+      // The name identifies a session, so it gives up room last
+      const flexibleColumns = ["First prompt", "Project", "Name"]
         .map((header) => headers.indexOf(header))
         .filter((index) => index !== -1);
       process.stdout.write(

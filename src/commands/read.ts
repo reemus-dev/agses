@@ -69,7 +69,7 @@ export const readCommand = defineCommand({
   args: {
     session: {
       type: "positional",
-      description: "Session path, UUID/prefix, 14-char Hex ID, or exact title",
+      description: "Session path, UUID/prefix, 14-char Hex ID, or exact name",
       required: false,
     },
     project: {

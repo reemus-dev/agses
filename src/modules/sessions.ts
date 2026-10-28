@@ -254,16 +254,15 @@ export function resolveProject(
   if (closest) return closest;
 
   throw new CliFailure(
-    "Could not resolve a Claude Code project from the current directory. Use --project <path-or-query>.",
+    "Could not resolve a Claude Code project from the current directory. Use --project <path-or-query>, or run `agses help`.",
   );
 }
 
 /**
  * The session `identifier` names in the projects: a 14-char Hex ID (no
- * fallback), an exact UUID, an exact title, then a unique UUID prefix.
- * Continued sessions match all but the title, which they share with the session
- * continuing them. Ambiguous candidates name their project when several were
- * searched.
+ * fallback), an exact UUID, an exact name, then a unique UUID prefix. Continued
+ * sessions match all but the name, which they share with the session continuing
+ * them. Ambiguous candidates name their project when several were searched.
  */
 function matchSession(
   projects: ProjectRecord[],
@@ -285,8 +284,8 @@ function matchSession(
       `Ambiguous session ${kind} "${identifier}". Matches:\n${matches
         .map((session) =>
           projects.length === 1
-            ? `  ${session.hexId}  ${session.id}  ${session.title}`
-            : `  ${session.hexId}  ${session.id}  ${session.project}  ${session.title}`,
+            ? `  ${session.hexId}  ${session.id}  ${session.name}`
+            : `  ${session.hexId}  ${session.id}  ${session.project}  ${session.name}`,
         )
         .join("\n")}`,
     );
@@ -302,8 +301,8 @@ function matchSession(
   return (
     sessions.find((s) => s.id === needle) ??
     pick(
-      listed.filter((s) => s.title.toLowerCase() === needle),
-      "title",
+      listed.filter((s) => s.name.toLowerCase() === needle),
+      "name",
     ) ??
     pick(
       sessions.filter((s) => s.id.startsWith(needle)),
@@ -348,7 +347,7 @@ export async function resolveSession(
   }
 
   const unknown = new CliFailure(
-    `Unknown session ID, prefix, Hex ID, or title "${identifier}".`,
+    `Unknown session ID, prefix, Hex ID, or name "${identifier}".`,
   );
   if (projectQuery !== undefined) {
     const match = matchSession(
@@ -399,7 +398,7 @@ export function sessionFrontmatter(
 ): Record<string, string | null> {
   const fields: Record<string, string | null> = {
     hexId: session.hexId,
-    title: session.title,
+    name: session.name,
     created: session.created,
     project: session.project,
     transcript: session.transcript,
