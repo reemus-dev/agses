@@ -2,7 +2,12 @@
 
 [![CI](https://github.com/reemus-dev/agses/actions/workflows/ci.yml/badge.svg)](https://github.com/reemus-dev/agses/actions/workflows/ci.yml)
 
-Find, outline, read, search and rename Claude Code sessions from your terminal.
+**Find, outline, read, search and rename Claude Code sessions from your
+terminal, even while they run.**
+
+Use it yourself, or let your agents use it to carry on earlier work, see what
+another session did, or analyze past sessions to improve future work. `agses`
+reads the transcripts Claude Code saves, with no index to build or keep current.
 
 - List projects and sessions, newest activity first
 - Outline a session as numbered events, then read any event in full
@@ -12,26 +17,35 @@ Find, outline, read, search and rename Claude Code sessions from your terminal.
 - Rename a session, as `/rename` does, even while it runs
 - Get JSON output from every command that lists or reads sessions
 
-`agses` reads the full transcripts that Claude Code already saves, exactly as
-recorded, with no index to build or keep current. It is made for agents that
-need to recover earlier work. It is not a memory system or an index.
+An outline starts with the session's metadata, shortened here, then shows one
+row per event:
 
-## Contents
+```text
+$ agses outline 0205853e93805d --no-tools --first 8
+---
+hexId: "0205853e93805d"
+name: "Dropping the Anthropic SDK"
+project: "/Users/me/agses"
+---
 
-- [Installation](#installation)
-- [Usage](#usage)
-  - [Session selection](#session-selection)
-  - [Subagents and workflow runs](#subagents-and-workflow-runs)
-- [How it works](#how-it-works)
-- [Privacy](#privacy)
-- [Development](#development)
-- [License](#license)
+#1  user      How much work would be required to drop the anthropic SDK as…
+#42 assistant Checking whether the SDK exports a type for transcript entri…
+#47 assistant Measuring what a bundle would weigh, to ground the bundling …
+#52 assistant The bundle comes out at 1.3 MB, so the only question is the …
+#56 assistant Bundling won't work. It would technically: a minified bundle…
+#59 user      If we're going to do this, I guess golden output diff is one…
+#70 assistant I agree. The golden diff only proves that the migration pres…
+#72 user      Confirm your test recommendations with pi-advisor. Also, use…
+… 103 later activity events omitted
+```
+
+Refs skip the tool calls that `--no-tools` hides. Then
+`agses read 0205853e93805d --entry 56` prints event 56 in full.
 
 ## Installation
 
-<!-- prettier-ignore -->
-> [!NOTE]
-> `agses` requires [Bun](https://bun.sh/) 1.3.7 or later.
+`agses` requires [Bun](https://bun.sh/) 1.3.7 or later. It is tested on macOS
+and Linux.
 
 ```sh
 bun add -g agses-cli
@@ -40,39 +54,125 @@ bun add -g agses-cli
 Or run it without installing:
 
 ```sh
-bunx agses-cli sessions
+bunx agses-cli sessions --all --limit 20
 ```
 
-Shell completion is available for bash, zsh, fish and PowerShell:
+<details>
+<summary>Shell completion for bash, zsh, fish and PowerShell</summary>
 
 ```sh
-source <(agses complete bash)
+echo 'source <(agses complete bash)' >> ~/.bashrc
 ```
+
+```sh
+echo 'source <(agses complete zsh)' >> ~/.zshrc
+```
+
+```sh
+agses complete fish > ~/.config/fish/completions/agses.fish
+```
+
+```powershell
+agses complete powershell > ~/agses-completion.ps1
+echo '. ~/agses-completion.ps1' >> $PROFILE
+```
+
+</details>
+
+To uninstall, run `bun remove -g agses-cli` and remove any completion line you
+added.
+
+## Quick start
+
+Find a session, outline its events, then read the events that matter. Replace
+`SESSION` with a Hex ID from `sessions`, and `20` with a ref from the outline.
+
+```sh
+# Find the session
+agses sessions --all --limit 20
+# Numbered events, newest last
+agses outline SESSION --last 40
+# One event in full
+agses read SESSION --entry 20
+# Recent conversation within an estimated 80,000 tokens
+agses read SESSION --no-tools --tokens 80000
+# Matches with one message either side
+agses search "query" --all --context 1
+```
+
+A running session shows what Claude Code has saved so far. Run the command again
+to see newer activity.
+
+### Use with agents
+
+`agses --help` prints the commands and selection rules as a guide written for
+agents. Add an instruction to the file your agent reads, such as `CLAUDE.md` or
+`AGENTS.md`:
+
+```markdown
+Use `agses` when continuing earlier work, inspecting another Claude Code
+session, or analyzing past sessions. Run `agses --help` first.
+```
+
+## What agses reads and writes
+
+- `agses` reads `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects` when
+  `CLAUDE_CONFIG_DIR` is not set. It never starts a model session.
+- Only `rename` writes to the Claude Code config directory. It appends one
+  `custom-title` entry to the session's transcript, as `/rename` and the Agent
+  SDK's `renameSession` do. A running session shows the new name the next time
+  it records its name, or when resumed.
+- Everything runs locally, except `tokens`. It sends its input to Anthropic's
+  token-counting API, or to `ANTHROPIC_BASE_URL` when that is set. It needs
+  `AGSES_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`, in that order. Claude Code
+  can use `ANTHROPIC_API_KEY` in place of your subscription login, so prefer
+  `AGSES_ANTHROPIC_API_KEY`, which leaves Claude Code's login as it is.
+  `read --tokens` estimates locally and needs no key.
+
+## Recommended settings
+
+Two Claude Code settings keep sessions where `agses` can find them. Merge these
+keys into `~/.claude/settings.json`:
+
+```json
+{
+  "cleanupPeriodDays": 365,
+  "env": {
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1"
+  }
+}
+```
+
+- `cleanupPeriodDays` sets how many days Claude Code keeps transcripts. The
+  default is 30, and Claude Code deletes older transcripts without a message.
+  Set it to how long you want to keep sessions, such as `365` for a year. `0` is
+  not valid.
+- `CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR` returns each Bash command to the
+  project directory. Without it, a `cd` carries over to later commands. An agent
+  that moves to another directory, such as a temp directory, can then change the
+  project path its session records, so the session seems to be missing from its
+  project.
 
 ## Usage
 
-```sh
+```text
 agses projects
 agses sessions [--project PATH_OR_QUERY | --all] [--limit N] [--size]
-agses outline [SESSION] [--subagent ID] [--first N | --last N] [--no-tools] [--extra]
-agses read [SESSION] [--subagent ID] [--role user|assistant|both] [--no-tools] [--extra] [--first N | --last N] [--entry N] [--tokens N]
-agses search QUERY [--project PATH_OR_QUERY | --all] [--role user|assistant|both] [--subagents] [--context N] [--regex] [--case-sensitive]
+agses outline [SESSION] [--subagent ID] [--first N | --last N]
+              [--no-tools] [--extra]
+agses read [SESSION] [--subagent ID] [--role user|assistant|both]
+           [--no-tools] [--extra] [--first N | --last N]
+           [--entry N] [--tokens N]
+agses search QUERY [--project PATH_OR_QUERY | --all]
+             [--role user|assistant|both] [--subagents] [--context N]
+             [--regex] [--case-sensitive]
 agses workflows [SESSION] [--run ID|REF]
 agses rename SESSION NAME
 agses tokens [FILE] [--model opus|sonnet|haiku|ID]
 ```
 
-A typical recovery starts with an outline, then reads the events that matter:
-
-```sh
-agses sessions --all --limit 20                # find the session
-agses outline SESSION --last 40                # numbered events, newest last
-agses read SESSION --entry 20                  # one event in full
-agses read SESSION --no-tools --tokens 80000   # recent conversation within a token budget
-agses search "query" --all --context 1         # matches with one message either side
-```
-
 - `agses` alone runs `agses sessions`.
+- Every command that takes `SESSION` also takes `--project PATH_OR_QUERY`.
 - Every command that lists or reads sessions accepts `--format text|json`.
 - `#N` refs in an outline number every event, including the attachment, meta and
   system entries that only `--extra` shows. A ref is the same with or without
@@ -83,8 +183,9 @@ agses search "query" --all --context 1         # matches with one message either
 
 ### Session selection
 
-Projects are the working directories that sessions recorded. `--project` takes
-an exact path or a unique substring. Without it, `agses` uses the closest
+Projects are the directories sessions started in, as Claude Code files them. A
+session started in a git worktree belongs to the worktree path. `--project`
+takes an exact path or a unique substring. Without it, `agses` uses the closest
 project that contains the current directory.
 
 `SESSION` resolves within that project, in this order:
@@ -129,58 +230,92 @@ agses workflows SESSION --run RUN_ID
 
 ## How it works
 
-`agses` reads `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects` when
-`CLAUDE_CONFIG_DIR` is not set. It never starts a model session.
+`agses` reads these files for each session:
 
-A session's name, first prompt and working directory come from the first and
-last 64 KB of its transcript. The name is the latest rename, else Claude Code's
-AI title, then the last or first prompt. For events, `agses` reads the whole
-transcript and follows its `parentUuid` chain back from the latest branch, so
-abandoned branches stay out. It re-parents each compaction boundary onto the
-history before it, so the thread runs through every compaction instead of
-stopping at the last one.
+```text
+~/.claude/projects/<project>/
+├── <session>.jsonl                   main thread
+└── <session>/
+    ├── subagents/
+    │   ├── agent-<id>.jsonl          subagent thread
+    │   ├── agent-<id>.meta.json      spawning Agent call
+    │   └── workflows/<runId>/
+    │       ├── agent-<id>.jsonl      workflow agent thread
+    │       ├── agent-<id>.meta.json  workflow phase
+    │       └── journal.jsonl         agent starts, outcomes
+    └── workflows/<runId>.json        run snapshot
+```
 
-Resuming a compacted session can continue it in a new transcript. The new
-transcript repeats the compaction, and the old one ends with a `continued-in`
-entry that names the new session. `agses` reads the old history first, so the
-new session's thread, subagents and workflow runs still span every compaction.
+### Session names
 
-- **Projects** are the directories sessions started in, as Claude Code files
-  them. A session started in a git worktree belongs to the worktree path.
+Listing reads only the first and last 64 KB of each transcript. It reads further
+only when the working directory is not there. The name is the first of these
+that the transcript has:
+
+```text
+latest rename → AI title → last prompt → summary → first prompt
+```
+
+### Threads
+
+A thread runs through every compaction, and through a continuation into a new
+transcript. Resuming a compacted session can cause that continuation.
+
+```text
+old transcript
+│  events
+│  compaction ──── joined to the events before it
+│  events
+│  continued-in ── names the new session
+▼
+new transcript
+│  compaction ──── repeated entries, skipped
+│  events
+▼
+one thread, oldest first
+```
+
+- `agses` follows the `parentUuid` chain back from the latest branch, so
+  abandoned branches stay out.
+- Each compaction starts a new chain. `agses` joins it to the entry before it.
+- A continued session's subagents and workflow runs also span both transcripts.
+
+### Events
+
 - **Events** are user and assistant text, compaction summaries, and tool calls
-  on the main thread, plus extras: attachments (hook output, file and reminder
-  context), plugin and meta messages, system entries, and harness noise
-  (interruptions, slash-command output, reminder-only turns). Extras are hidden
-  unless `--extra` is given. Thinking is dropped. Tool results attach to their
-  call.
-- **Subagents** each keep one transcript,
-  `<session>/subagents/agent-<id>.jsonl`, across every continuation. Its
-  `.meta.json` names the Agent call that spawned it. On the parent thread, that
-  call, `SendMessage` calls to the subagent, and its hand-backs and task
-  notifications show `@<id>`. A fork's thread starts at its spawning call,
-  skipping the parent history its transcript copies. Workflow agents are
-  subagents under `<session>/subagents/workflows/<runId>/`. Their `.meta.json`
-  names the workflow phase instead of a spawning call.
-- **Workflow runs** start from a Workflow call. Its result names the run and the
-  launch's task, and the call and the launch's task notification show
-  `@<runId>`. A resume reuses the run under a new task. The run's journal
-  (`journal.jsonl` beside its agents) records each agent's start and outcome as
-  it runs. The snapshot `<session>/workflows/<runId>.json` adds status, usage
-  and errors when a launch settles. It only counts while it records the latest
-  launch. Until then, the latest launch's notification gives the status, or it
-  is `unknown`.
+  on the main thread.
+  - Tool results attach to their call.
+  - Thinking is dropped.
+- **Extras** show only with `--extra`:
+  - attachments, such as hook output and file and reminder context
+  - plugin and meta messages
+  - system entries
+  - harness noise: interruptions, slash-command output and reminder-only turns
 
-## Privacy
+### Subagents
 
-- Only `rename` writes to the Claude Code config directory. It appends one
-  `custom-title` entry to the session's transcript, as `/rename` and the Agent
-  SDK's `renameSession` do. A running session shows the new name the next time
-  it records its name, or when resumed.
-- Everything runs locally, except `tokens`. It sends its input to Anthropic's
-  token-counting API and needs `AGSES_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`,
-  in that order. Claude Code can use `ANTHROPIC_API_KEY` in place of your
-  subscription login, so export `AGSES_ANTHROPIC_API_KEY` to make the key
-  available in every shell.
+- Each subagent keeps one transcript across every continuation.
+- On the parent thread, these rows show `@<id>`:
+  - the Agent call that spawned it, which its `.meta.json` names
+  - `SendMessage` calls to it
+  - its hand-backs and task notifications
+- A fork's thread starts at its spawning call. It skips the parent history that
+  its transcript copies.
+- Workflow agents are subagents too. Their `.meta.json` names the workflow phase
+  instead of a spawning call.
+
+### Workflow runs
+
+- A Workflow call starts a run. Its result names the run and the launch's task.
+- The call and the launch's task notification show `@<runId>`.
+- A resume reuses the run under a new task.
+- The journal records each agent's start and outcome as the run goes.
+- The snapshot adds status, usage and errors when a launch settles.
+- Status comes from the first of these that covers the latest launch:
+
+  ```text
+  snapshot → latest launch's notification → unknown
+  ```
 
 ## Development
 
@@ -188,10 +323,12 @@ Requires [Mise](https://mise.jdx.dev/).
 
 ```sh
 mise install
+mise run install
 mise run check
 ```
 
-Run from source with `bun src/index.ts <command>`.
+Run from source with `bun src/index.ts <command>`. To try a command on the test
+fixtures instead of your own sessions, set `CLAUDE_CONFIG_DIR=test/fixtures`.
 
 ## License
 
