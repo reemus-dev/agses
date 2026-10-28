@@ -54,6 +54,14 @@ Run from source with `bun src/index.ts <command>`.
 them. `test/fixtures.ts` writes them. Change it rather than the transcripts, and
 run `bun test/fixtures.ts`.
 
-Release with `mise run release patch` (or `minor`, `major`, an exact version).
-It sets the version in `package.json`, commits, tags and pushes. The tag starts
-`release.yml`, which publishes to npm. Do not edit the version or tag by hand.
+Release with `mise run release patch NOTES` (or `minor`, `major`, an exact
+version), where `NOTES` is a Markdown file of release notes. It sets the version
+in `package.json`, commits, tags with the notes as the message and pushes. The
+tag starts `release.yml`, which publishes to npm and to a GitHub release that
+shows the notes. Do not edit the version or tag by hand.
+
+Write the notes for people who use `agses`, from the changes since the last
+release. Open with one sentence on what the release brings. Then list changes
+under `## Breaking changes`, `## Features` and `## Fixes`, leaving out empty
+sections, and end with `## Install`. Follow an earlier release, such as
+`gh release view v0.3.0`.

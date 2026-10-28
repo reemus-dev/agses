@@ -46,8 +46,20 @@ run = "oxfmt"
 
 # ── Release ─────────────────────────────────────────────────────────────────
 
-# The pushed tag starts release.yml, which publishes to npm
+# The pushed tag starts release.yml, which publishes to npm and makes the tag's
+# message the GitHub release notes
 [tasks.release]
-description = "Bump the version, commit and tag it, then push to release"
-usage = 'arg "<bump>" help="patch, minor, major or an exact version"'
-run = 'npm version "$usage_bump" -m "Release %s" && git push --follow-tags'
+description = "Bump the version, commit it, tag it with the release notes, then push to release"
+usage = '''
+arg "<bump>" help="patch, minor, major or an exact version"
+arg "<notes>" help="Markdown file with the release notes"
+'''
+run = '''
+set -eu
+test -s "$usage_notes" || { echo "No release notes in $usage_notes" >&2; exit 1; }
+tag=$(npm version "$usage_bump" -m "Release %s")
+# npm tags with the commit message. --cleanup=whitespace keeps Markdown
+# headings, which git otherwise strips as comments.
+git tag -f -a "$tag" --cleanup=whitespace -F "$usage_notes"
+git push --follow-tags
+'''
