@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/reemus-dev/agses/actions/workflows/ci.yml/badge.svg)](https://github.com/reemus-dev/agses/actions/workflows/ci.yml)
 
+![Listing, outlining, reading and searching Claude Code sessions](assets/demo/agses.gif)
+
 **Find, outline, read, search and rename Claude Code sessions from your
 terminal, even while they run.**
 

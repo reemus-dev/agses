@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Records assets/demo/agses.gif from copies of real sessions. Only the featured
+# sessions show, home paths read /Users/me, and the recording fails if its
+# screen text matches the deny list.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+projects="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
+repos="$(cd .. && pwd)"
+demo=.cache/demo
+config="$demo/claude"
+
+# Project and session ID, shown newest first by `agses sessions --all`
+featured=(
+  agses:665eafee-221c-437c-8e18-d82e9f26f770            # Dropping the Anthropic SDK
+  ghostty-designer:12e95873-ab79-4b49-bba8-b1a2bb058186 # HCL and OKLCH color spaces
+  subcommit:d582a266-dc6b-410e-be19-ea992d50df26        # Directory-targeted commits
+  ghostty-designer:be89a787-d81d-4945-ad8b-1451359c222b # Closest theme matching
+  keywatch:2107a950-4791-4550-8b1f-7ca884a8d47f         # Renamed below, from Gd-release-pipeline-2 brew publication
+  agses:f1fc22b7-2e36-4748-93b2-d88db08e11fb            # Claude Code sessions toolkit
+  ghostty-designer:7a62930f-94ae-4773-a98d-9697a49e682e # Hex input not updating from sliders
+  subcommit:5d0ff5c8-d023-400f-a5ad-4257fd8fd3aa        # Subcommit handling limitation
+)
+# Seconds since each session's last activity
+idle=(251 2287 7405 18921 91163 179342 264877 531019)
+
+# Screen text the recording must not show
+deny='reemus(?!-dev)|cpatarun|realfresh|@gmail|sk-ant-|/Users/(?!me/)|/private/|Projects/'
+
+encode() { printf '%s' "$1" | sed 's/[^a-zA-Z0-9]/-/g'; }
+
+# ─── Demo config ─────────────────────────────────────────────────────────────
+
+rm -rf "$config"
+for i in "${!featured[@]}"; do
+  project="${featured[$i]%%:*}" session="${featured[$i]#*:}"
+  source="$projects/$(encode "$repos/$project")"
+  target="$config/projects/$(encode "/Users/me/$project")"
+  mkdir -p "$target"
+
+  # The session, the transcripts it continues, and their subagents
+  queue=("$session")
+  while ((${#queue[@]})); do
+    id="${queue[0]}" queue=("${queue[@]:1}")
+    cp "$source/$id.jsonl" "$target/"
+    if test -d "$source/$id"; then cp -R "$source/$id" "$target/"; fi
+    while IFS= read -r earlier; do
+      queue+=("$(basename "$earlier" .jsonl)")
+    done < <(grep -lF "\"continuedInSessionId\":\"$id\"" "$source"/*.jsonl || true)
+  done
+done
+
+# Longest prefixes first, so repo paths become /Users/me/<project>
+find "$config" -type f \( -name '*.jsonl' -o -name '*.json' \) -print0 \
+  | REPOS="$repos" HOME_DIR="$HOME" \
+    REPOS_ENCODED="$(encode "$repos")" HOME_ENCODED="$(encode "$HOME")" \
+    xargs -0 perl -pi -e '
+      s/\Q$ENV{REPOS}\E/\/Users\/me/g; s/\Q$ENV{HOME_DIR}\E/\/Users\/me/g;
+      s/\Q$ENV{REPOS_ENCODED}\E/-Users-me/g; s/\Q$ENV{HOME_ENCODED}\E/-Users-me/g;
+    '
+CLAUDE_CONFIG_DIR="$config" bun src/index.ts rename 875123cc10642b "Homebrew formula publishing" >/dev/null
+
+# Mtimes order the sessions and set their idle times
+for i in "${!featured[@]}"; do
+  project="${featured[$i]%%:*}" session="${featured[$i]#*:}"
+  stamp="$(date -v-"${idle[$i]}S" +%Y%m%d%H%M.%S)"
+  touch -t "$stamp" "$config/projects/$(encode "/Users/me/$project")/$session.jsonl"
+done
+
+# ─── Recording ───────────────────────────────────────────────────────────────
+
+magick -size 1200x740 radial-gradient:'#2a1a14'-'#0b0b0b' "$demo/backdrop.png"
+
+docker build --quiet --tag agses-demo-vhs --file assets/demo/Dockerfile assets/demo >/dev/null
+docker run --rm \
+  --env HOST_UID="$(id -u)" \
+  --env HOST_GID="$(id -g)" \
+  --env HOME=/Users/me \
+  --volume "$PWD:/Users/me/agses" \
+  --volume "$PWD/$config:/Users/me/.claude" \
+  --workdir /Users/me/agses \
+  --volume "$HOME/Library/Fonts/RobotoMonoNerdFont-Regular.ttf:/usr/share/fonts/truetype/roboto/RobotoMonoNerdFont-Regular.ttf:ro" \
+  --volume "$HOME/Library/Fonts/RobotoMonoNerdFont-Bold.ttf:/usr/share/fonts/truetype/roboto/RobotoMonoNerdFont-Bold.ttf:ro" \
+  --entrypoint sh \
+  agses-demo-vhs -c \
+  'fc-cache -f >/dev/null && vhs assets/demo/agses.tape && chown "$HOST_UID:$HOST_GID" assets/demo/agses.gif .cache/demo/agses.txt'
+
+# ─── Privacy check ───────────────────────────────────────────────────────────
+
+matches="$(DENY="$deny" perl -ne 'print if /$ENV{DENY}/' "$demo/agses.txt")"
+if test -n "$matches"; then
+  printf '%s\n' "$matches" >&2
+  rm assets/demo/agses.gif
+  echo "Removed assets/demo/agses.gif: the lines above match the deny list" >&2
+  exit 1
+fi
+echo "Recorded assets/demo/agses.gif"

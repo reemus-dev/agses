@@ -3,6 +3,9 @@
 # Maintainer notes
 /TODO.md
 
+# Local caches, such as the session copies the demo GIF records from
+/.cache/
+
 # Secrets, which Bun loads and which may hold the API key for `agses tokens`
 .env
 .env.*
