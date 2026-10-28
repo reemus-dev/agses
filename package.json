@@ -1,6 +1,6 @@
 {
   "name": "agses-cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Bun CLI to find, outline, read, search and rename Claude Code sessions, even while they run",
   "keywords": [
     "agents",
